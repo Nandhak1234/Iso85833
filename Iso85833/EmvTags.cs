@@ -1,9 +1,9 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using static TLV;
+
 public enum TagLengthType
 {
     Fixed,
@@ -22,20 +22,19 @@ class TLV
     public bool orLength { get; set; }
     public string Value { get; set; }
 }
-
 class EmvTags
 {
     public static void Emv()
-    {
-        string filepath = "emv-tags.txt";
+    { 
+       string filePath = "emv-tags.txt";
         try
         {
-           string emvData = File.ReadAllText(filepath);
-            //tring emvData = "9F0607A0000000032010";
+            string emvData = File.ReadAllText(filePath);
+          // string emvData = "9F060A12345678901234567890";
             List<TLV> emvTags = new List<TLV>
             {
-
-               new TLV { Id = "9F06", Name = "Application Identifier (AID)",minLen=5,maxLen=16,TagLengthRep=TagLengthType.Min_Max},
+                //Already having
+                new TLV { Id = "9F06", Name = "Application Identifier (AID)",minLen=5,maxLen=16,TagLengthRep=TagLengthType.Min_Max},
                 new TLV { Id = "5F34", Name = "Application Primary Account Number (PAN) Sequence Number" ,Length=1,TagLengthRep=TagLengthType.Fixed},
                 new TLV { Id = "9F27", Name = "Cryptogram Information Data",Length=1,TagLengthRep= TagLengthType.Fixed},
                 new TLV { Id = "9F26", Name = "Application Cryptogram" ,Length=8,TagLengthRep = TagLengthType.Fixed},
@@ -244,52 +243,15 @@ class EmvTags
                 tagId = tagId + tagIdSecondHalf;
             }
             string tagLengthStr = emvData.Substring(index, 2);
-            char val = tagLengthStr[0];
-            Console.WriteLine(tagLengthStr);
-            int tagLengthValue;
-            //if(val==0)
-            //{
-            //     tagLengthValue = Convert.ToInt32(tagLengthStr, 16);
-            //}
-            //else
-            //{
-            //    tagLengthValue = int.Parse(tagLengthStr);
-            //}
-            tagLengthValue = Convert.ToInt32(tagLengthStr, 16);
-            Console.WriteLine(tagLengthValue);
+            int tagLengthValue = Convert.ToInt32(tagLengthStr, 16);
+        
             TLV reqTagSpec = FindTag(emvTags, tagId);
-            int a = 0;
-            if (reqTagSpec != null)
-            {
-                if (reqTagSpec.TagLengthRep == TagLengthType.Fixed)
-                {
-                    if (tagLengthValue == reqTagSpec.maxLen)
-                    {
-                        a = 1;
-                    }
-                }
-                else if (reqTagSpec.TagLengthRep == TagLengthType.Variable)
-                {
-                    if (tagLengthValue >= reqTagSpec.minLen && tagLengthValue <= reqTagSpec.maxLen)
-                    {
-                        a = 1;
-                    }
-                }
-                else if (reqTagSpec.TagLengthRep == TagLengthType.Min_Max)
-                {
-                    if (tagLengthValue != reqTagSpec.minLen || tagLengthValue != reqTagSpec.maxLen)
-                    {
-                        a = 1;
-                    }
-                }
-            }
-
+            int a = Operation(reqTagSpec, tagId, tagLengthValue);
             index += 2;
             string tagValue = emvData.Substring(index, tagLengthValue * 2);
-
             index += tagLengthValue * 2;
             TLV emvTag = new TLV() { };
-            if (a == 0)
+            if (a == 1)
             {
                 emvTag = new TLV
                 {
@@ -313,15 +275,54 @@ class EmvTags
         }
         return Tags;
     }
+
     static string GetTagName(List<TLV> emvTags, string tagId)
     {
         // Find the tag with the specified tagId and return its Name property
         var tag = emvTags.Find(t => t.Id == tagId);
         return tag?.Name ?? "";
     }
-    private static TLV FindTag(List<TLV> emvTags, string tagId)
+    private static TLV FindTag(List<TLV> tagSpecs, string tagId)
     {
-        var tags = emvTags.Where(x => x.Id == tagId).FirstOrDefault();
-        return tags;
+        var tag = tagSpecs.Where(x => x.Id == tagId).FirstOrDefault();
+        return tag;
+    }
+    private static int Operation(TLV reqTagSpec, string tagId, int tagLengthValue)
+    {
+        int a = 1;
+        if (reqTagSpec != null)
+        {
+            if (reqTagSpec.Id == tagId)
+            {
+                if (reqTagSpec.TagLengthRep == TagLengthType.Variable)
+                {
+                    a = 0;
+
+                }
+                else if (reqTagSpec.TagLengthRep == TagLengthType.Fixed)
+                {
+                    if (reqTagSpec.Length == tagLengthValue)
+                    {
+                        a = 0;
+                    }
+                }
+                else if (reqTagSpec.TagLengthRep == TagLengthType.Min_Max)
+                {
+
+                    if (tagLengthValue >= reqTagSpec.minLen && tagLengthValue <= reqTagSpec.maxLen)
+                    {
+                        a = 0;
+                    }
+                }
+                else if (reqTagSpec.TagLengthRep == TagLengthType.OrNum)
+                {
+                    if (tagLengthValue == reqTagSpec.minLen || tagLengthValue == reqTagSpec.maxLen)
+                    {
+                        a = 0;
+                    }
+                }
+            }
+        }
+        return a;
     }
 }
