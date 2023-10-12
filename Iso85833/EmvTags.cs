@@ -30,7 +30,7 @@ class EmvTags
         try
         {
             string emvData = File.ReadAllText(filePath);
-          // string emvData = "9F060A12345678901234567890";
+          //string emvData = "9F060A12345678901234567890";
             List<TLV> emvTags = new List<TLV>
             {
                 //Already having
