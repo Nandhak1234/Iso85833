@@ -19,7 +19,6 @@ class TLV
     public int Length { get; set; }
     public int minLen { get; set; }
     public int maxLen { get; set; }
-    public bool orLength { get; set; }
     public string Value { get; set; }
 }
 class EmvTags
