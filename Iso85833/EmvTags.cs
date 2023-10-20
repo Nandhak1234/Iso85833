@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ISO8583;
+using System;
 using System.CodeDom;
 using System.Collections.Generic;
 using System.IO;
@@ -203,7 +204,7 @@ class EmvTags
                
             };
 
-            List<TLV> Tags = ParseEMVData(emvData, emvTags);
+            (List<TLV> Tags, string ARQCdata) = ParseEMVData(emvData, emvTags);
 
             // Print the parsed tags
             Console.WriteLine("Tags are:\n");
@@ -214,6 +215,7 @@ class EmvTags
                 Console.WriteLine($"Tag Name: {tag.Name}");
                 Console.WriteLine($"Tag Value: {tag.Value}\n");
             }
+            Arqc_Data.ARQC(ARQCdata);
         }
         catch (Exception ex)
         {
@@ -223,11 +225,11 @@ class EmvTags
         Console.ReadLine();
     }
 
-    static List<TLV> ParseEMVData(string emvData, List<TLV> emvTags)
+    private static (List<TLV>, string) ParseEMVData(string emvData, List<TLV> emvTags)
     {
         List<TLV> Tags = new List<TLV>();
         int index = 0;
-
+        string ARQCdata = "";
         while (index < emvData.Length)
         {
             string tagId = emvData.Substring(index, 2);
@@ -243,24 +245,14 @@ class EmvTags
             }
             string tagLengthStr = emvData.Substring(index, 2);
             int tagLengthValue = Convert.ToInt32(tagLengthStr, 16);
-        
             TLV reqTagSpec = FindTag(emvTags, tagId);
             int a = Operation(reqTagSpec, tagId, tagLengthValue);
             index += 2;
             string tagValue = emvData.Substring(index, tagLengthValue * 2);
+            ARQCdata = ARQCdata + tagValue;
             index += tagLengthValue * 2;
             TLV emvTag = new TLV() { };
-            if (a == 1)
-            {
-                emvTag = new TLV
-                {
-                    Id = tagId, // Use only the tagId without tagIdSecondHalf
-                    Length = tagLengthValue,
-                    Value = "Invalid Length given by the user",
-                    Name = GetTagName(emvTags, tagId) // Get the name from the emvTags list
-                };
-            }
-            else
+            if (a == 0)
             {
                 emvTag = new TLV
                 {
@@ -269,12 +261,23 @@ class EmvTags
                     Value = tagValue,
                     Name = GetTagName(emvTags, tagId) // Get the name from the emvTags list
                 };
+
+            }
+            else
+            {
+                emvTag = new TLV
+                {
+                    Id = tagId, // Use only the tagId without tagIdSecondHalf
+                    Length = tagLengthValue,
+                    Value = "Invalid Length given by the user",
+                    Name = GetTagName(emvTags, tagId) // Get the name from the emvTags list
+                };
+
             }
             Tags.Add(emvTag);
         }
-        return Tags;
+        return (Tags, ARQCdata);
     }
-
     static string GetTagName(List<TLV> emvTags, string tagId)
     {
         // Find the tag with the specified tagId and return its Name property
