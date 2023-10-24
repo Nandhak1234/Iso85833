@@ -28,7 +28,7 @@ namespace ISO8583
             string Final_UDK = UDK_A + UDK_B;
             string sessionkey = Final_UDK;
             Console.WriteLine("The sessionkey is " + sessionkey);
-            Console.WriteLine("The Generated ARQC is " + Operation(ARQCdata, sessionkey));
+            Console.WriteLine("The Generated ARQC is " + Operation(ARQCdata, "754CA10145294FE352EC852F3DCE7C5B"));
         }
 
         private static string Cardnum(string track2data)
@@ -155,16 +155,37 @@ namespace ISO8583
             Console.WriteLine("The CDOL data is " + ARQCdata);
             string session1 = sessionkey.Substring(0, 16);
             string session2 = sessionkey.Substring(16);
-            string Desdata = DESEncrypt(ARQCdata, sessionkey);
-            for (int i = 0; i < Desdata.Length; i += 16)
+            int count = CountOccurrences(ARQCdata);
+
+           
+            for (int i = 0; i < ARQCdata.Length; i += 16)
             {
-                string chunk = Desdata.Substring(i, Math.Min(16, Desdata.Length - i));
+                string chunk = ARQCdata.Substring(i, Math.Min(16, ARQCdata.Length - i));
                 chunks.Add(chunk);
             }
-            int lenn = chunks.Count;
-            string str = DESDecrypt(chunks[lenn - 2], session2);
-            string str1 = DESEncrypt(str, session1);
-            return str1.Substring(0, 16);
+            string DE = DESEncrypt(chunks[0], session1).Substring(0, 16);
+            int a = 1;
+            for (int i = 0; i < count - 1; i++)
+            {
+                string XO = XOR(DE, chunks[a]);
+                a = a + 1;
+                for (int j = 0; j < count - 1; j++)
+                {
+                    DE = DESEncrypt(XO, session1).Substring(0, 16);
+                    break;
+                }
+
+            }
+            string DD = DESDecrypt(DE, session2 ).Substring(0, 16);
+            string Arqc = DESEncrypt(DD, session1).Substring(0, 16);
+            return Arqc;
+            //Console.WriteLine("Arqc Data :" + Arqc);
+        }
+        public static int CountOccurrences(string data)
+        {
+            int len = data.Length;
+            int count = len / 16;
+            return count;
         }
     }
 }
