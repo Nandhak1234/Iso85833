@@ -231,14 +231,11 @@ namespace ISO8583
 
                 }
             }
+
             string DD = DESDecrypt(DE, session2).Substring(0, 16);
             string Arqc = DESEncrypt(DD, session1).Substring(0, 16);
-            Console.WriteLine("Arqc Data :" + Arqc);
-            Console.ReadKey();
-
-
             string Desdata = DESEncrypt(ARQCdata, sessionkey);
-            Console.WriteLine(Desdata);
+            
             for (int i = 0; i < Desdata.Length; i += 16)
             {
                 string chunk = Desdata.Substring(i, Math.Min(16, Desdata.Length - i));

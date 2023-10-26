@@ -93,7 +93,6 @@ namespace ISO
             return bits;
         }
 
-
         public static string PrepareVariableFieldDataWithLength(string data, int lengthDigits)
         {
             if (string.IsNullOrEmpty(data))
@@ -110,8 +109,6 @@ namespace ISO
 
             return result;
         }
-
-
     }
 }
 
