@@ -215,7 +215,7 @@ class EmvTags
                 Console.WriteLine($"Tag Name: {tag.Name}");
                 Console.WriteLine($"Tag Value: {tag.Value}\n");
             }
-            Arqc_Data.ARQC(ARQCdata);
+
         }
         catch (Exception ex)
         {

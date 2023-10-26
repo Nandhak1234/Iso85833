@@ -13,22 +13,66 @@ namespace ISO8583
 {
     class Arqc_Data
     {
-        public static void ARQC(string ARQCdata)
+        public static void ARQC()
         {
-            string mdk = "7B3D21A4F9C2E0563A9D5B1F8E4C7B9D";
+            string tlvString = "";
+
+            List<TLV> arqclist = new List<TLV>
+            {
+                new TLV { Id = "9F02", Name = "Amount Authorized",Value="000000100000" },
+                new TLV { Id = "9F03", Name = "Amount, Other ", Value = "000000000000" },
+                new TLV { Id = "9F1A", Name = "Terminal Country Code ", Value = "0682" },
+                new TLV { Id = "95", Name = "Terminal Verification Result ", Value = "0000000000" },
+                new TLV { Id = "5F2A", Name = "Transaction Currency Code ", Value = "0682" },
+                new TLV { Id = "9A", Name = "Transaction Date", Value = "231023" },
+                new TLV { Id = "9C", Name = "Transaction Type", Value = "31" },
+                //Keeps Changing 
+                new TLV { Id = "9F37", Name = "Unpredictable Number", Value = "01613B75" },
+                new TLV { Id = "82", Name = "Application Interchange Profile", Value = "3800" },
+                new TLV { Id = "9F36", Name = "Application Transaction Counter (ATC)", Value = "000F" },
+            
+        };
+
+           
+
+
+            string mdk = "6E46FE409DF704BCA75E7FF270B65E73";
             string dki = "01";
-            string track2data = ";5351290102107506=21112011557206710000?";
+            string track2data = ";4226810000000010=21112011557206710000?";
             string cardnum = Cardnum(track2data);
             string seqno = dki;
             string concatenate = cardnum + seqno;
             concatenate = concatenate.Substring(2);
             string UDK_A = Encrypt3DES(concatenate, mdk);
+            //Console.WriteLine(UDK_A);
             string xorvalue = XOR(concatenate, "ffffffffffffffff");
             string UDK_B = Encrypt3DES(xorvalue, mdk);
+            //Console.WriteLine(UDK_B);
             string Final_UDK = UDK_A + UDK_B;
-            string sessionkey = Final_UDK;
-            Console.WriteLine("The sessionkey is " + sessionkey);
-            Console.WriteLine("The Generated ARQC is " + Operation(ARQCdata, "754CA10145294FE352EC852F3DCE7C5B"));
+            //Console.WriteLine(Final_UDK);
+            string sessionkey = Session_Key(Final_UDK);
+            Console.WriteLine("The sessionkey : " + sessionkey);
+            foreach (TLV tlv in arqclist)
+            {
+                tlvString += $"{tlv.Value}";
+            }
+
+            if (!string.IsNullOrEmpty(tlvString))
+            {
+                tlvString = tlvString.TrimEnd(',');
+            }
+
+            // Convert the tlvString into an array by splitting it on commas
+            string[] tlvArray = tlvString.Split(',');
+
+            // Output the tlvArray
+            foreach (string tlvItem in tlvArray)
+            {
+                Console.WriteLine("CDOL Data before padding : "+tlvItem);
+            }
+
+            Console.WriteLine("The Generated ARQC : " + Operation(tlvArray, sessionkey));
+            Console.ReadKey();
         }
 
         private static string Cardnum(string track2data)
@@ -89,9 +133,10 @@ namespace ISO8583
         }
         private static string Session_Key(string Final_UDk)
         {
-            string R1 = "0001F00000000000";
-            string R2 = "00010F0000000000";
+            string R1 = "000FF00000000000";
+            string R2 = "000F0F0000000000";
             string SKA = Encrypt3DES(R1, Final_UDk);
+            //Console.WriteLine(SKA);
             string SKB = Encrypt3DES(R2, Final_UDk);
             string Sessionkey = SKA + SKB;
             return Sessionkey;
@@ -132,18 +177,30 @@ namespace ISO8583
         }
 
 
-        private static string Operation(string ARQCdata, string sessionkey)
+        private static string Operation(string[] tlvArray, string sessionkey)
         {
             List<string> chunks = new List<string>();
-            ARQCdata = ARQCdata + "A00003240000" + "000000" + "80";
+            // Convert tlvArray to a single string and append it to ARQCdata
+            string ARQCdata = string.Join("", tlvArray) + "011203A0880000";
+            //Console.WriteLine(ARQCdata);
             int len = ARQCdata.Length;
+            //Console.WriteLine(len);
             int rem = len % 8;
+            //Console.WriteLine(rem);
             bool rep = true;
+           
             while (rep)
             {
+                if (rem == 0)
+                {
+                  ARQCdata= ARQCdata + "80" + "00000000000000";
+                    // Console.WriteLine("ARQCdata1 :"+ARQCdata);
+                    rep = false;
+                }
                 if (rem != 0)
                 {
                     ARQCdata = ARQCdata + "0";
+                    //Console.WriteLine("ARQCdata2: "+ARQCdata);
                     len = ARQCdata.Length;
                     rem = len % 8;
                 }
@@ -152,12 +209,10 @@ namespace ISO8583
                     rep = false;
                 }
             }
-            Console.WriteLine("The CDOL data is " + ARQCdata);
+            Console.WriteLine("CDOL Data after padding : " + ARQCdata);
             string session1 = sessionkey.Substring(0, 16);
             string session2 = sessionkey.Substring(16);
-            int count = CountOccurrences(ARQCdata);
 
-           
             for (int i = 0; i < ARQCdata.Length; i += 16)
             {
                 string chunk = ARQCdata.Substring(i, Math.Min(16, ARQCdata.Length - i));
@@ -165,6 +220,7 @@ namespace ISO8583
             }
             string DE = DESEncrypt(chunks[0], session1).Substring(0, 16);
             int a = 1;
+            int count = CountOccurrences(ARQCdata);
             for (int i = 0; i < count - 1; i++)
             {
                 string XO = XOR(DE, chunks[a]);
@@ -172,14 +228,26 @@ namespace ISO8583
                 for (int j = 0; j < count - 1; j++)
                 {
                     DE = DESEncrypt(XO, session1).Substring(0, 16);
-                    break;
-                }
 
+                }
             }
-            string DD = DESDecrypt(DE, session2 ).Substring(0, 16);
+            string DD = DESDecrypt(DE, session2).Substring(0, 16);
             string Arqc = DESEncrypt(DD, session1).Substring(0, 16);
-            return Arqc;
-            //Console.WriteLine("Arqc Data :" + Arqc);
+            Console.WriteLine("Arqc Data :" + Arqc);
+            Console.ReadKey();
+
+
+            string Desdata = DESEncrypt(ARQCdata, sessionkey);
+            Console.WriteLine(Desdata);
+            for (int i = 0; i < Desdata.Length; i += 16)
+            {
+                string chunk = Desdata.Substring(i, Math.Min(16, Desdata.Length - i));
+                chunks.Add(chunk);
+            }
+            int lenn = chunks.Count;
+            string str = DESDecrypt(chunks[lenn - 2], session2);
+            string str1 = DESEncrypt(str, session1);
+            return str1.Substring(0, 16);
         }
         public static int CountOccurrences(string data)
         {
@@ -187,5 +255,7 @@ namespace ISO8583
             int count = len / 16;
             return count;
         }
+
     }
-}
+ }
+
