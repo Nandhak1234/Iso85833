@@ -22,13 +22,13 @@ namespace ISO8583
                 new TLV { Id = "9F02", Name = "Amount Authorized",Value="000000100000" },
                 new TLV { Id = "9F03", Name = "Amount, Other ", Value = "000000000000" },
                 new TLV { Id = "9F1A", Name = "Terminal Country Code ", Value = "0682" },
-                new TLV { Id = "95", Name = "Terminal Verification Result ", Value = "0000000000" },
+                new TLV { Id = "95"  , Name = "Terminal Verification Result ", Value = "0000000000" },
                 new TLV { Id = "5F2A", Name = "Transaction Currency Code ", Value = "0682" },
-                new TLV { Id = "9A", Name = "Transaction Date", Value = "231023" },
-                new TLV { Id = "9C", Name = "Transaction Type", Value = "31" },
+                new TLV { Id = "9A"  , Name = "Transaction Date", Value = "231023" },
+                new TLV { Id = "9C"  , Name = "Transaction Type", Value = "31" },
                 //Keeps Changing 
                 new TLV { Id = "9F37", Name = "Unpredictable Number", Value = "01613B75" },
-                new TLV { Id = "82", Name = "Application Interchange Profile", Value = "3800" },
+                new TLV { Id = "82"  , Name = "Application Interchange Profile", Value = "3800" },
                 new TLV { Id = "9F36", Name = "Application Transaction Counter (ATC)", Value = "000F" },
             
             };
@@ -176,21 +176,28 @@ namespace ISO8583
             {
                 if (rem == 0)
                 {
-                  ARQCdata= ARQCdata + "80" + "00000000000000";
+                    ARQCdata= ARQCdata + "80" + "00000000000000";
                     // Console.WriteLine("ARQCdata1 :"+ARQCdata);
                     rep = false;
                 }
                 if (rem != 0)
                 {
-                    ARQCdata = ARQCdata +"0";
-                    //Console.WriteLine("ARQCdata2: "+ARQCdata);
-                    len = ARQCdata.Length;
-                    rem = len % 8;
+                    ARQCdata = ARQCdata + "80";
+                    int le = ARQCdata.Length;
+                    int div = le % 8;
+                    if (div != 0)
+                    {
+                        int paddingCount = 8 - div;
+                        Console.WriteLine(paddingCount);
+                        ARQCdata = ARQCdata.PadRight(le + paddingCount, '0');
+                        rep= false;
+                    }
                 }
                 if (rem == 0)
                 {
                     rep = false;
                 }
+                
             }
             Console.WriteLine("CDOL Data after padding : " + ARQCdata);
             string session1 = sessionkey.Substring(0, 16);
@@ -201,7 +208,7 @@ namespace ISO8583
                 string chunk = ARQCdata.Substring(i, Math.Min(16, ARQCdata.Length - i));
                 chunks.Add(chunk);
             }
-            string DE = DESEncrypt(chunks[0], session1).Substring(0, 16);
+            string DE = DESEncrypt(chunks[0], session1).Substring(0,16);
             int a = 1;
             int count = CountOccurrences(ARQCdata);
             for (int i = 0; i < count - 1; i++)
@@ -210,12 +217,12 @@ namespace ISO8583
                 a = a + 1;
                 for (int j = 0; j < count - 1; j++)
                 {
-                    DE = DESEncrypt(XO, session1).Substring(0, 16);
+                    DE = DESEncrypt(XO, session1).Substring(0,16);
 
                 }
             }
-            string DD = DESDecrypt(DE, session2).Substring(0, 16);
-            string Arqc = DESEncrypt(DD, session1).Substring(0, 16);
+            string DD = DESDecrypt(DE, session2).Substring(0,16);
+            string Arqc = DESEncrypt(DD, session1).Substring(0,16);
             return Arqc;
         }
         public static int CountOccurrences(string data)
@@ -228,3 +235,4 @@ namespace ISO8583
     }
  }
 
+ 
